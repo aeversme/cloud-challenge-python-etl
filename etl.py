@@ -23,6 +23,7 @@ def extract_transform_covid_data(nyt_url, hopkins_url):
 
         # Transform Johns Hopkins data
         hopkins_transformed = filter_dataframe(hopkins_df)
+        print(hopkins_transformed.columns)
 
         #  Transform NYT dates to datetime objects
         nyt_df['date'] = date_series_to_datetime(nyt_df)
