@@ -1,11 +1,11 @@
 import pandas as pd
 
 
-def date_series_to_datetime(data_series):
+def date_series_to_datetime(dataframe):
     """
     Transform date object series to datetime dtype
     """
-    return pd.to_datetime(data_series['date'])
+    return pd.to_datetime(dataframe['date'])
 
 
 def filter_dataframe(dataframe):
