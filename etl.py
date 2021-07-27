@@ -2,7 +2,7 @@ import urllib.error
 import pandas as pd
 from urllib.request import urlretrieve
 from transform import date_series_to_datetime, filter_dataframe, merge_dataframes
-import data_load
+from data_load import CovidDayStats, CovidDataContainer
 
 NYT_DATA = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
 HOPKINS_DATA = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
@@ -42,14 +42,10 @@ transformed_nyt_df, transformed_hopkins_df = transform_dataframes(nyt_df, hopkin
 covid_data = covid_data_merge(transformed_nyt_df, transformed_hopkins_df)
 
 print(covid_data)
-print(covid_data.dtypes)
 
-data_list = []
+data_container = CovidDataContainer()
 
+for index, row in covid_data.iterrows():
+    data_container.add_day(CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
 
-for index, row in covid_data.head(5).iterrows():
-    data_list.append(data_load.CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
-
-
-for day in data_list:
-    print(day)
+print(data_container.get_day_with_timestamp(pd.Timestamp("2020-12-01")))
