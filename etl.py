@@ -41,9 +41,9 @@ def merge_covid_dataframes(nyt_df, hopkins_df):
     return merged_covid_data
 
 
-def extract_transform():
+def extract_transform(nyt_dataset_url, hopkins_dataset_url):
     try:
-        nyt_df, hopkins_df = download_covid_dataframe(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+        nyt_df, hopkins_df = download_covid_dataframe(nyt_dataset_url, hopkins_dataset_url)
     except urllib.error.HTTPError:
         print("The import failed")
         # TODO SNS error notification
@@ -63,9 +63,9 @@ def extract_transform():
     return covid_data
 
 
-def load_to_database():
+def load_to_database(nyt_dataset_url, hopkins_dataset_url):
     try:
-        covid_data = extract_transform()
+        covid_data = extract_transform(nyt_dataset_url, hopkins_dataset_url)
 
         data_container = CovidDataContainer()
 
@@ -104,7 +104,9 @@ def load_to_database():
             # TODO SNS notification of no update
     except:
         print("Something went wrong")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    load_to_database()
+    load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
