@@ -4,11 +4,11 @@ from urllib.request import urlretrieve
 from data_transformer import date_series_to_datetime, filter_dataframe, merge_dataframes
 from data_handler import CovidDayStats, CovidDataContainer
 
-NYT_DATA = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
-HOPKINS_DATA = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
+NYT_DATASET_URL = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
+HOPKINS_DATASET_URL = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
 
 
-def download_read_csv_data(nyt_url, hopkins_url):
+def download_covid_dataframe(nyt_url, hopkins_url):
     """
     Downloads COVID data sets and reads them into dataframes
     """
@@ -33,7 +33,7 @@ def transform_dataframes(nyt_df, hopkins_df):
     return nyt_df, hopkins_transformed
 
 
-def covid_data_merge(nyt_df, hopkins_df):
+def merge_covid_dataframes(nyt_df, hopkins_df):
     """
     Merge the data sets into one dataframe
     """
@@ -41,9 +41,17 @@ def covid_data_merge(nyt_df, hopkins_df):
     return merged_covid_data
 
 
-nyt_df, hopkins_df = download_read_csv_data(NYT_DATA, HOPKINS_DATA)
-transformed_nyt_df, transformed_hopkins_df = transform_dataframes(nyt_df, hopkins_df)
-covid_data = covid_data_merge(transformed_nyt_df, transformed_hopkins_df)
+try:
+    nyt_df, hopkins_df = download_covid_dataframe(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+except urllib.error.HTTPError:
+    print("The import failed")
+    # TODO SNS error notification
+try:
+    transformed_nyt_df, transformed_hopkins_df = transform_dataframes(nyt_df, hopkins_df)
+except ValueError:
+    print("Some data was invalid")
+    # TODO SNS error notification
+covid_data = merge_covid_dataframes(transformed_nyt_df, transformed_hopkins_df)
 
 # print(covid_data)
 
@@ -65,7 +73,6 @@ if len(data_container) == 0:
     print(len(data_container))
 elif most_recent_dataset_date > most_recent_database_date:
     print("Loading only new data into database...")
-
     # find dataset index of most recent database date
     dataset_index_of_database_most_recent_date = int(covid_data[covid_data['date'] ==
                                                                 most_recent_database_date].index.values)
@@ -78,5 +85,6 @@ elif most_recent_dataset_date > most_recent_database_date:
     for index, row in new_covid_data.iterrows():
         data_container.add_day(CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
     print(data_container.get_most_recent_date())
+    # TODO SNS notification of update completion, include # of rows updated
 else:
     print("No new data to load")
