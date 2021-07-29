@@ -1,6 +1,6 @@
 import pytest
 
-from data_load import CovidDayStats, CovidDataContainer
+from data_handler import CovidDayStats, CovidDataContainer
 import pandas as pd
 
 
@@ -35,3 +35,15 @@ def test_add_day():
     assert query_day.cases == 2
     with pytest.raises(KeyError):
         bad_query_day = container_test.get_day_with_timestamp(pd.Timestamp("2021-7-23"))
+
+
+def test_get_most_recent_date():
+    container_test = CovidDataContainer()
+    row_test_1 = CovidDayStats("2021-7-24", 0, 0, 0)
+    row_test_2 = CovidDayStats("2021-7-25", 2, 1, 0)
+    row_test_3 = CovidDayStats("2021-7-26", 4, 2, 1)
+    container_test.add_day(row_test_1)
+    container_test.add_day(row_test_2)
+    container_test.add_day(row_test_3)
+    latest_date = container_test.get_most_recent_date()
+    assert latest_date == pd.Timestamp("2021-07-26")

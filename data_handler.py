@@ -26,11 +26,16 @@ class CovidDataContainer:
     def get_day_with_timestamp(self, timestamp):
         return self.data_dict[timestamp]
 
+    def get_most_recent_date(self):
+        most_recent_date = pd.Timestamp("1981-04-06")
+        for key in self.data_dict:
+            key_timestamp = pd.Timestamp(key)
+            if key_timestamp > most_recent_date:
+                most_recent_date = key_timestamp
+        return most_recent_date
+
+    def __len__(self):
+        return len(self.data_dict)
+
     def __str__(self):
         return f"A Covid data container with {len(self.data_dict)} rows."
-
-#
-#     dictionary of rows
-#         primary key = date
-
-
