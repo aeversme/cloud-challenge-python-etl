@@ -1,3 +1,4 @@
+import json
 import urllib.error
 import pandas as pd
 import pandas.errors
@@ -7,22 +8,24 @@ from data_handler import CovidDayStats, CovidDataContainer
 
 NYT_DATASET_URL = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
 HOPKINS_DATASET_URL = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
+NYT_CSV_PATH = '/tmp/nyt_data.csv'
+HOPKINS_CSV_PATH = '/tmp/hopkins_data.csv'
 
 most_recent_error_message = "An unknown error occurred."
 
 
-def download_covid_dataframes(nyt_url: str, hopkins_url: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def download_covid_dataframes(nyt_url: str, hopkins_url: str):
     """
     Downloads COVID datasets and reads them into dataframes.
     """
-    urlretrieve(nyt_url, 'nyt_data.csv')
-    urlretrieve(hopkins_url, 'hopkins_data.csv')
-    nyt_df = pd.read_csv('nyt_data.csv')
-    hopkins_df = pd.read_csv('hopkins_data.csv')
+    urlretrieve(nyt_url, NYT_CSV_PATH)
+    urlretrieve(hopkins_url, HOPKINS_CSV_PATH)
+    nyt_df = pd.read_csv(NYT_CSV_PATH)
+    hopkins_df = pd.read_csv(HOPKINS_CSV_PATH)
     return nyt_df, hopkins_df
 
 
-def transform_dataframes(nyt_df: pd.DataFrame, hopkins_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def transform_dataframes(nyt_df: pd.DataFrame, hopkins_df: pd.DataFrame):
     """
     Transforms data in the dataframes.
     """
@@ -164,5 +167,16 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
     return data_container
 
 
-if __name__ == "__main__":
-    load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+def lambda_handler(event, context):
+    try:
+        load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+    except:
+        print("There was an error.")
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Success!')
+    }
+
+
+# if __name__ == "__main__":
+#     load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
