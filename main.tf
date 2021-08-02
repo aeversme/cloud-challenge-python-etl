@@ -55,7 +55,7 @@ module "lambda_function" {
   timeout       = 120
   publish       = true
 
-  source_path = "./lambda_func.py"
+  source_path = "./etl.py"
 
   store_on_s3             = true
   s3_bucket               = aws_s3_bucket.bucket.id
