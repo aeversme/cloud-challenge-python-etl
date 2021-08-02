@@ -6,7 +6,7 @@ terraform {
     }
     random = {
       source  = "hashicorp/random"
-      version = "2.3.0"
+      version = "~> 3.1.0"
     }
   }
 
@@ -55,7 +55,11 @@ module "lambda_function" {
   timeout       = 120
   publish       = true
 
-  source_path = "./etl.py"
+  source_path = [
+    "./etl.py",
+    "./data_handler.py",
+    "./data_transformer.py"
+  ]
 
   store_on_s3             = true
   s3_bucket               = aws_s3_bucket.bucket.id
