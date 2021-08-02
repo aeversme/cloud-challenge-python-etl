@@ -1,4 +1,5 @@
 import json
+import sys
 import urllib.error
 import pandas as pd
 import pandas.errors
@@ -8,8 +9,14 @@ from data_handler import CovidDayStats, CovidDataContainer
 
 NYT_DATASET_URL = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
 HOPKINS_DATASET_URL = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
-NYT_CSV_PATH = '/tmp/nyt_data.csv'
-HOPKINS_CSV_PATH = '/tmp/hopkins_data.csv'
+IS_RUNNING_LOCALLY = False
+
+if IS_RUNNING_LOCALLY:
+    NYT_CSV_PATH = './tmp/nyt_data.csv'
+    HOPKINS_CSV_PATH = './tmp/hopkins_data.csv'
+else:
+    NYT_CSV_PATH = '/tmp/nyt_data.csv'
+    HOPKINS_CSV_PATH = '/tmp/hopkins_data.csv'
 
 most_recent_error_message = "An unknown error occurred."
 
@@ -51,6 +58,10 @@ def extract_transform(nyt_dataset_url: str, hopkins_dataset_url: str) -> pd.Data
         nyt_df, hopkins_df = download_covid_dataframes(nyt_dataset_url, hopkins_dataset_url)
     except urllib.error.HTTPError as error:
         most_recent_error_message = f"The import failed. {error}"
+        # TODO SNS error notification
+        raise
+    except FileNotFoundError as error:
+        most_recent_error_message = f"Incorrect file or directory path. {error.filename}: {error.strerror}"
         # TODO SNS error notification
         raise
     try:
@@ -162,8 +173,9 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
             no_update()
     except:
         # something went wrong
+        print(sys.exc_info())
         print(most_recent_error_message)
-        return None
+        raise
     return data_container
 
 
@@ -171,12 +183,15 @@ def lambda_handler(event, context):
     try:
         load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
     except:
-        print("There was an error.")
+        return {
+            'statusCode': 500,
+            'body': json.dumps('Something went wrong. See logs for details.')
+        }
     return {
         'statusCode': 200,
         'body': json.dumps('Success!')
     }
 
 
-# if __name__ == "__main__":
-#     load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+if __name__ == "__main__" and IS_RUNNING_LOCALLY:
+    load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
