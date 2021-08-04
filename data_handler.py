@@ -27,7 +27,7 @@ class CovidDataContainer:
         return self.data_dict[timestamp]
 
     def get_most_recent_date(self):
-        most_recent_date = pd.Timestamp("1981-04-06")
+        most_recent_date = pd.Timestamp("2010-01-01")
         for key in self.data_dict:
             key_timestamp = pd.Timestamp(key)
             if key_timestamp > most_recent_date:

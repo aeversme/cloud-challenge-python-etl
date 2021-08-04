@@ -69,8 +69,17 @@ module "lambda_function" {
     module.lambda_layer_s3.lambda_layer_arn
   ]
 
-  tags = {
-    Module = "lambda-with-layer"
+  attach_policy_statements = true
+  policy_statements = {
+    sns = {
+      effect = "Allow",
+      actions = [
+        "sns:ListTopics",
+        "sns:Publish",
+        "sns:Subscribe"
+      ],
+      resources = ["arn:aws:sns:us-east-1:033979438744:*"]
+    }
   }
 }
 
@@ -88,4 +97,8 @@ module "lambda_layer_s3" {
     bucket = aws_s3_bucket.bucket.id
     key    = aws_s3_bucket_object.file_upload.key
   }
+}
+
+resource "aws_sns_topic" "etl_updates" {
+  name = "etl-updates-topic"
 }

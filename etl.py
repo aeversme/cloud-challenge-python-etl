@@ -1,5 +1,6 @@
 import json
 import sys
+import boto3
 import urllib.error
 import pandas as pd
 import pandas.errors
@@ -18,7 +19,11 @@ else:
     NYT_CSV_PATH = '/tmp/nyt_data.csv'
     HOPKINS_CSV_PATH = '/tmp/hopkins_data.csv'
 
-most_recent_error_message = "An unknown error occurred."
+most_recent_error_message = 'An unknown error occurred.'
+
+sns_client = boto3.client('sns')
+sns_topics_list = sns_client.list_topics()
+sns_topic_arn = sns_topics_list['Topics'][0]['TopicArn']
 
 
 def download_covid_dataframes(nyt_url: str, hopkins_url: str):
@@ -57,69 +62,22 @@ def extract_transform(nyt_dataset_url: str, hopkins_dataset_url: str) -> pd.Data
     try:
         nyt_df, hopkins_df = download_covid_dataframes(nyt_dataset_url, hopkins_dataset_url)
     except urllib.error.HTTPError as error:
-        most_recent_error_message = f"The import failed. {error}"
-        # TODO SNS error notification
+        most_recent_error_message = f'The import failed. {error}'
         raise
     except FileNotFoundError as error:
-        most_recent_error_message = f"Incorrect file or directory path. {error.filename}: {error.strerror}"
-        # TODO SNS error notification
+        most_recent_error_message = f'Incorrect file or directory path. {error.filename}: {error.strerror}'
         raise
     try:
         transformed_nyt_df, transformed_hopkins_df = transform_dataframes(nyt_df, hopkins_df)
     except ValueError as error:
-        most_recent_error_message = f"Some data was invalid. {error}"
-        # TODO SNS error notification
+        most_recent_error_message = f'Some data was invalid. {error}'
         raise
     try:
         covid_data = merge_covid_dataframes(transformed_nyt_df, transformed_hopkins_df)
     except (pandas.errors.MergeError, ValueError) as error:
-        most_recent_error_message = f"The merge failed. {error}"
-        # TODO SNS error notification
+        most_recent_error_message = f'The merge failed. {error}'
         raise
     return covid_data
-
-
-def load_initial_data(covid_dataset: pd.DataFrame, container: CovidDataContainer):
-    """
-    Loads all rows from the dataset into the database.
-    """
-    print("Loading initial data into database...")
-    add_rows_to_container(covid_dataset, container)
-    message = "Initial data loaded"
-    number_of_rows = len(container)
-    send_notification(message, number_of_rows)
-
-
-def load_recent_updates(covid_dataset: pd.DataFrame,
-                        most_recent_database_date: pd.Timestamp,
-                        container: CovidDataContainer):
-    """
-    Drops any row from the dataset that is already stored in the database, and loads only new rows into the database.
-    """
-    print("Loading only new data into database...")
-    # find dataset index of most recent database date
-    dataset_index_of_database_most_recent_date = int(covid_dataset[covid_dataset['date'] ==
-                                                                   most_recent_database_date].index.values)
-
-    # eliminate all dataset indices prior to most recent database date index
-    newest_covid_data = covid_dataset.drop(covid_dataset.index[range(0, dataset_index_of_database_most_recent_date +
-                                                                     1)])
-
-    # use data_container.add_day to add only new data to database
-    add_rows_to_container(newest_covid_data, container)
-
-    message = "Update successful"
-    number_of_rows = len(newest_covid_data)
-    send_notification(message, number_of_rows)
-
-
-def no_update():
-    """
-    Sends a 'no update' message.
-    """
-    message = "No new data to load"
-    number_of_rows = 0
-    send_notification(message, number_of_rows)
 
 
 def add_rows_to_container(rows_to_add: pd.DataFrame, container: CovidDataContainer):
@@ -131,14 +89,72 @@ def add_rows_to_container(rows_to_add: pd.DataFrame, container: CovidDataContain
     return container
 
 
-def send_notification(message: str, number_of_rows: int):
+def load_initial_data(covid_dataset: pd.DataFrame, container: CovidDataContainer):
     """
-    Prints an informational message.
+    Loads all rows from the dataset into the database and sends a success message.
     """
-    notification = f"{message}, added {number_of_rows} rows to the database."
-    print(notification)
-    # TODO SNS notification goes here
-    return notification
+    print('Loading initial data into database...')
+    add_rows_to_container(covid_dataset, container)
+    # SNS notification
+    subject = 'Initial COVID database load successful'
+    number_of_rows = len(container)
+    message = f'Initial data loaded: {number_of_rows} rows added to the database.'
+    publish_to_sns(message, subject)
+    # print message to console for logging
+    print(message)
+
+
+def load_recent_updates(covid_dataset: pd.DataFrame,
+                        most_recent_database_date: pd.Timestamp,
+                        container: CovidDataContainer):
+    """
+    Drops any row from the dataset that is already stored in the database, loads only new rows into the database,
+    and sends a success message.
+    """
+    print('Loading only new data into database...')
+    # find dataset index of most recent database date
+    dataset_index_of_database_most_recent_date = int(covid_dataset[covid_dataset['date'] ==
+                                                                   most_recent_database_date].index.values)
+
+    # eliminate all dataset indices prior to most recent database date index
+    newest_covid_data = covid_dataset.drop(covid_dataset.index[range(0, dataset_index_of_database_most_recent_date +
+                                                                     1)])
+
+    # use data_container.add_day to add only new data to database
+    add_rows_to_container(newest_covid_data, container)
+
+    #SNS notification
+    subject = 'COVID database update successful'
+    number_of_rows = len(newest_covid_data)
+    message = f'Today\'s update was successful: {number_of_rows} row(s) added to the database.'
+    publish_to_sns(message, subject)
+    # print message to console for logging
+    print(message)
+
+
+def no_update():
+    """
+    Sends a 'no update' message.
+    """
+    subject = 'No Python ETL update'
+    message = 'There was no new data to load: 0 rows added to the database.'
+    publish_to_sns(message, subject)
+    # print message to console for logging
+    print(message)
+
+
+def publish_to_sns(message: str, subject: str):
+    """
+    Publishes a message to the SNS topic.
+    """
+    sns_response = sns_client.publish(
+        TopicArn=sns_topic_arn,
+        Message=message,
+        Subject=subject
+    )
+    response_status_code = sns_response['ResponseMetadata']['HTTPStatusCode']
+    print(f'SNS Response Status Code: {response_status_code}')
+    return response_status_code
 
 
 def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
@@ -171,10 +187,14 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
         else:
             # no new data loaded into the database
             no_update()
-    except:
-        # something went wrong
+    except Exception as error:
+        print(error)
         print(sys.exc_info())
         print(most_recent_error_message)
+        # SNS error notification
+        subject = 'The Python ETL function encountered an error today'
+        message = f'An error occurred.\n\n{most_recent_error_message}\n\n{sys.exc_info()}'
+        publish_to_sns(message, subject)
         raise
     return data_container
 
@@ -182,7 +202,8 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
 def lambda_handler(event, context):
     try:
         load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
-    except:
+    except Exception as error:
+        print(error)
         return {
             'statusCode': 500,
             'body': json.dumps('Something went wrong. See logs for details.')
@@ -193,5 +214,5 @@ def lambda_handler(event, context):
     }
 
 
-if __name__ == "__main__" and IS_RUNNING_LOCALLY:
+if __name__ == '__main__' and IS_RUNNING_LOCALLY:
     load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)

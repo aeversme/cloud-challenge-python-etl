@@ -1,6 +1,6 @@
 import pytest
 import urllib.error
-from etl import download_covid_dataframes, load_to_database, send_notification
+from etl import download_covid_dataframes, load_to_database, publish_to_sns
 from data_handler import CovidDataContainer
 import pandas as pd
 
@@ -28,7 +28,7 @@ def test_load_to_database_success():
     assert database.get_most_recent_date() == pd.Timestamp("2021-01-03")
 
 
-def test_send_notification():
-    message = "Success"
-    number_of_rows = 5
-    assert send_notification(message, number_of_rows) == "Success, added 5 rows to the database."
+# def test_publish_to_sns():
+#     message = "Success"
+#     number_of_rows = 5
+#     assert publish_to_sns(message) == "Success, added 5 rows to the database."
