@@ -154,6 +154,7 @@ def publish_to_sns(message: str, subject: str):
     )
     response_status_code = sns_response['ResponseMetadata']['HTTPStatusCode']
     print(f'SNS Response Status Code: {response_status_code}')
+    print(sns_response)
     return response_status_code
 
 

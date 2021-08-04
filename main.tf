@@ -74,11 +74,18 @@ module "lambda_function" {
     sns = {
       effect = "Allow",
       actions = [
+        "sns:ListTopics"
+      ],
+      resources = ["arn:aws:sns:us-east-1:033979438744:*"]
+    }
+    sns2 = {
+      effect = "Allow",
+      actions = [
         "sns:ListTopics",
         "sns:Publish",
         "sns:Subscribe"
       ],
-      resources = ["arn:aws:sns:us-east-1:033979438744:*"]
+      resources = [aws_sns_topic.etl_updates.arn]
     }
   }
 }
