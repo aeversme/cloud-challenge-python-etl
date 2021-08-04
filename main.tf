@@ -81,7 +81,6 @@ module "lambda_function" {
     sns2 = {
       effect = "Allow",
       actions = [
-        "sns:ListTopics",
         "sns:Publish",
         "sns:Subscribe"
       ],

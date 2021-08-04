@@ -23,7 +23,7 @@ most_recent_error_message = 'An unknown error occurred.'
 
 sns_client = boto3.client('sns', region_name='us-east-1')
 sns_topics_list = sns_client.list_topics()
-sns_topic_arn = sns_topics_list['Topics'][0]['TopicArn']
+sns_topic_arn = sns_topics_list['Topics'][1]['TopicArn']
 
 
 def download_covid_dataframes(nyt_url: str, hopkins_url: str):
