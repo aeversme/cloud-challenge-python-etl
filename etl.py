@@ -21,9 +21,12 @@ else:
 
 most_recent_error_message = 'An unknown error occurred.'
 
-sns_client = boto3.client('sns', region_name='us-east-1')
+sns_client = boto3.client('sns')
 sns_topics_list = sns_client.list_topics()
 sns_topic_arn = sns_topics_list['Topics'][1]['TopicArn']
+
+subject = ''
+message = ''
 
 
 def download_covid_dataframes(nyt_url: str, hopkins_url: str):
@@ -93,13 +96,14 @@ def load_initial_data(covid_dataset: pd.DataFrame, container: CovidDataContainer
     """
     Loads all rows from the dataset into the database and sends a success message.
     """
+    global subject, message
     print('Loading initial data into database...')
     add_rows_to_container(covid_dataset, container)
-    # SNS notification
     subject = 'Initial COVID database load successful'
     number_of_rows = len(container)
     message = f'Initial data loaded: {number_of_rows} rows added to the database.'
-    publish_to_sns(message, subject)
+    # SNS notification
+    # publish_to_sns(message, subject)
     # print message to console for logging
     print(message)
 
@@ -111,6 +115,7 @@ def load_recent_updates(covid_dataset: pd.DataFrame,
     Drops any row from the dataset that is already stored in the database, loads only new rows into the database,
     and sends a success message.
     """
+    global subject, message
     print('Loading only new data into database...')
     # find dataset index of most recent database date
     dataset_index_of_database_most_recent_date = int(covid_dataset[covid_dataset['date'] ==
@@ -123,11 +128,11 @@ def load_recent_updates(covid_dataset: pd.DataFrame,
     # use data_container.add_day to add only new data to database
     add_rows_to_container(newest_covid_data, container)
 
-    #SNS notification
     subject = 'COVID database update successful'
     number_of_rows = len(newest_covid_data)
     message = f'Today\'s update was successful: {number_of_rows} row(s) added to the database.'
-    publish_to_sns(message, subject)
+    # SNS notification
+    # publish_to_sns(message, subject)
     # print message to console for logging
     print(message)
 
@@ -136,21 +141,23 @@ def no_update():
     """
     Sends a 'no update' message.
     """
+    global subject, message
     subject = 'No Python ETL update'
     message = 'There was no new data to load: 0 rows added to the database.'
-    publish_to_sns(message, subject)
+    # SNS notification
+    # publish_to_sns(message, subject)
     # print message to console for logging
     print(message)
 
 
-def publish_to_sns(message: str, subject: str):
+def publish_to_sns(sns_subject: str, sns_message: str):
     """
     Publishes a message to the SNS topic.
     """
     sns_response = sns_client.publish(
         TopicArn=sns_topic_arn,
-        Message=message,
-        Subject=subject
+        Subject=sns_subject,
+        Message=sns_message
     )
     response_status_code = sns_response['ResponseMetadata']['HTTPStatusCode']
     print(f'SNS Response Status Code: {response_status_code}')
@@ -162,7 +169,7 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
     """
     Extracts and transforms two datasets and loads the merged dataset into a database.
     """
-    global most_recent_error_message
+    global most_recent_error_message, subject, message
     try:
         # extract and transform datasets
         covid_dataset = extract_transform(nyt_dataset_url, hopkins_dataset_url)
@@ -192,19 +199,22 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
         print(error)
         print(sys.exc_info())
         print(most_recent_error_message)
-        # SNS error notification
         subject = 'The Python ETL function encountered an error today'
         message = f'An error occurred.\n\n{most_recent_error_message}\n\n{sys.exc_info()}'
-        publish_to_sns(message, subject)
+        # SNS error notification
+        # publish_to_sns(message, subject)
         raise
     return data_container
 
 
 def lambda_handler(event, context):
+    global subject, message
     try:
         load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+        publish_to_sns(subject, message)
     except Exception as error:
         print(error)
+        publish_to_sns(subject, message)
         return {
             'statusCode': 500,
             'body': json.dumps('Something went wrong. See logs for details.')

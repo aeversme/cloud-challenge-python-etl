@@ -16,14 +16,12 @@ def test_http_error():
         download_covid_dataframes(test_url1, test_url2)
 
 
-# Throws 'botocore.exceptions.NoCredentialsError: Unable to locate credentials' on GH Actions runner
 def test_load_to_database_failure():
     with pytest.raises(Exception):
         load_to_database(test_url1, test_url2)
 
 
 # Throws FileNotFound error locally (/tmp vs ./tmp issue)
-# Throws 'botocore.exceptions.NoCredentialsError: Unable to locate credentials' on GH Actions runner
 def test_load_to_database_success():
     database = load_to_database(test_good_nyt_data_url, test_good_hopkins_data_url)
     assert isinstance(database, CovidDataContainer)
