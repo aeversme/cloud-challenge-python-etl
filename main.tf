@@ -96,6 +96,13 @@ module "lambda_function" {
     }
   }
 
+  allowed_triggers = {
+    DailyETLTrigger = {
+      service    = "events.amazonaws.com"
+      source_arn = aws_cloudwatch_event_rule.daily-etl-trigger.arn
+    }
+  }
+
   tags = {
     Name      = "covid-python-etl-function"
     ManagedBy = "Terraform"
@@ -139,6 +146,18 @@ resource "aws_dynamodb_table" "python-covid-etl-table" {
 
   tags = {
     Name      = "python-covid-etl-table"
+    ManagedBy = "Terraform"
+  }
+}
+
+resource "aws_cloudwatch_event_rule" "daily-etl-trigger" {
+  name        = "daily-python-covid-etl-trigger"
+  description = "Invoke the Python COVID ETL Lambda function once daily"
+
+  schedule_expression = "cron(0 12 * * ? *)"
+
+  tags = {
+    Name      = "python-covid-etl-trigger"
     ManagedBy = "Terraform"
   }
 }
