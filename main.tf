@@ -160,21 +160,10 @@ resource "aws_cloudwatch_event_target" "sns" {
   arn  = module.lambda_function.lambda_function_arn
 }
 
-resource "aws_sns_topic_policy" "default" {
-  arn    = module.lambda_function.lambda_function_arn
-  policy = data.aws_iam_policy_document.lambda_event_policy.json
-}
-
-data "aws_iam_policy_document" "lambda_event_policy" {
-  statement {
-    effect  = "Allow"
-    actions = ["lambda:InvokeFunction"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["events.amazonaws.com"]
-    }
-
-    resources = [module.lambda_function.lambda_function_arn]
-  }
+resource "aws_lambda_permission" "allow_event_bridge" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = module.lambda_function.lambda_function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily-etl-trigger.arn
 }
