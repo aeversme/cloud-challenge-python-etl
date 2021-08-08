@@ -14,6 +14,8 @@ def filter_dataframe(dataframe):
     """
     dataframe.rename(columns=str.lower, inplace=True)
     dataframe['date'] = date_series_to_datetime(dataframe)
+    dataframe['recovered'] = dataframe['recovered'].fillna(0)
+    dataframe['recovered'] = dataframe['recovered'].astype(int)
     dataframe_filtered = dataframe[dataframe['country/region'] == 'US']
     dataframe_reduced = dataframe_filtered.drop(columns=['country/region', 'province/state', 'confirmed', 'deaths'])
     return dataframe_reduced
