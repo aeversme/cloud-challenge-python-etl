@@ -96,19 +96,10 @@ module "lambda_function" {
     }
   }
 
-  allowed_triggers = {
-    DailyETLTrigger = {
-      service    = "events.amazonaws.com"
-      source_arn = aws_cloudwatch_event_rule.daily-etl-trigger.arn
-    }
-  }
-
   tags = {
     Name      = "covid-python-etl-function"
     ManagedBy = "Terraform"
   }
-
-  depends_on = [aws_cloudwatch_event_rule.daily-etl-trigger]
 }
 
 module "lambda_layer_s3" {
@@ -167,6 +158,23 @@ resource "aws_cloudwatch_event_rule" "daily-etl-trigger" {
 resource "aws_cloudwatch_event_target" "sns" {
   rule = aws_cloudwatch_event_rule.daily-etl-trigger.name
   arn  = module.lambda_function.lambda_function_arn
+}
 
-  depends_on = [module.lambda_function]
+resource "aws_sns_topic_policy" "default" {
+  arn    = module.lambda_function.lambda_function_arn
+  policy = data.aws_iam_policy_document.lambda_event_policy.json
+}
+
+data "aws_iam_policy_document" "lambda_event_policy" {
+  statement {
+    effect  = "Allow"
+    actions = ["lambda:InvokeFunction"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    resources = [module.lambda_function.lambda_function_arn]
+  }
 }
