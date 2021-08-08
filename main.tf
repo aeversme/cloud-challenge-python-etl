@@ -58,7 +58,8 @@ module "lambda_function" {
   source_path = [
     "./etl.py",
     "./data_handler.py",
-    "./data_transformer.py"
+    "./data_transformer.py",
+    "./message_handler.py"
   ]
 
   store_on_s3             = true
