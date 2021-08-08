@@ -107,6 +107,8 @@ module "lambda_function" {
     Name      = "covid-python-etl-function"
     ManagedBy = "Terraform"
   }
+
+  depends_on = [aws_cloudwatch_event_rule.daily-etl-trigger]
 }
 
 module "lambda_layer_s3" {
@@ -163,7 +165,8 @@ resource "aws_cloudwatch_event_rule" "daily-etl-trigger" {
 }
 
 resource "aws_cloudwatch_event_target" "sns" {
-  rule      = aws_cloudwatch_event_rule.daily-etl-trigger.name
-  target_id = "TriggerETL"
-  arn       = module.lambda_function.lambda_function_arn
+  rule = aws_cloudwatch_event_rule.daily-etl-trigger.name
+  arn  = module.lambda_function.lambda_function_arn
+
+  depends_on = [module.lambda_function]
 }
