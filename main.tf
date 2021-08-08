@@ -161,3 +161,9 @@ resource "aws_cloudwatch_event_rule" "daily-etl-trigger" {
     ManagedBy = "Terraform"
   }
 }
+
+resource "aws_cloudwatch_event_target" "sns" {
+  rule      = aws_cloudwatch_event_rule.daily-etl-trigger.name
+  target_id = "TriggerETL"
+  arn       = module.lambda_function.lambda_function_arn
+}
