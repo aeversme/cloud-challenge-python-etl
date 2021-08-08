@@ -86,6 +86,20 @@ module "lambda_function" {
       ],
       resources = [aws_sns_topic.etl_updates.arn]
     }
+    ddb = {
+      effect = "Allow",
+      actions = [
+        "dynamodb:Scan",
+        "dynamodb:PutItem",
+        "dynamodb:BatchWrite*"
+      ],
+      resources = [aws_dynamodb_table.python-covid-etl-table.arn]
+    }
+  }
+
+  tags = {
+    Name      = "covid-python-etl-function"
+    ManagedBy = "Terraform"
   }
 }
 
@@ -107,4 +121,25 @@ module "lambda_layer_s3" {
 
 resource "aws_sns_topic" "etl_updates" {
   name = "etl-updates-topic"
+
+  tags = {
+    Name      = "python-covid-etl-sns-topic"
+    ManagedBy = "Terraform"
+  }
+}
+
+resource "aws_dynamodb_table" "python-covid-etl-table" {
+  name         = "covid-data"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "date"
+
+  attribute {
+    name = "date"
+    type = "S"
+  }
+
+  tags = {
+    Name      = "python-covid-etl-table"
+    ManagedBy = "Terraform"
+  }
 }

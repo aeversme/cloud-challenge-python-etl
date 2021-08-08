@@ -1,7 +1,6 @@
 import pytest
 import urllib.error
 from etl import download_covid_dataframes, load_to_database
-from data_handler import CovidDataContainer
 import pandas as pd
 
 test_url1 = 'http://www.google.com/nonexistantfile'
@@ -24,13 +23,5 @@ def test_load_to_database_failure():
 # Throws FileNotFound error locally (/tmp vs ./tmp issue)
 def test_load_to_database_success():
     database = load_to_database(test_good_nyt_data_url, test_good_hopkins_data_url)
-    assert isinstance(database, CovidDataContainer)
     assert len(database) == 2
     assert database.get_most_recent_date() == pd.Timestamp("2021-01-03")
-
-
-# Need to modify for actual boto3 testing, not sure how to do this yet
-# def test_publish_to_sns():
-#     message = "Success"
-#     number_of_rows = 5
-#     assert publish_to_sns(message) == "Success, added 5 rows to the database."

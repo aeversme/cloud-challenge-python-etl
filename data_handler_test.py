@@ -1,49 +1,82 @@
+import boto3
 import pytest
-
-from data_handler import CovidDayStats, CovidDataContainer
+import os
+from moto import mock_dynamodb2
+from data_handler import get_most_recent_date, add_rows_to_database
 import pandas as pd
 
-
-def setup():
-    row_test = CovidDayStats("2021-7-26", 0, 0, 0)
-    return row_test
-
-
-def test_data_row_creation():
-    row_test = CovidDayStats("2021-7-26", 0, 0, 0)
-    assert row_test.datestring == "2021-7-26"
-    assert row_test.cases == 0
-    assert row_test.deaths == 0
-    assert row_test.recovered == 0
+dataframe_dict = {
+    'date': ['2021-8-1', '2021-8-2', '2021-8-3'],
+    'cases': [123, 234, 345],
+    'deaths': [12, 23, 34],
+    'recovered': [56, 67, 78]
+}
+dataframe = pd.DataFrame(data=dataframe_dict)
+dataframe['date'] = pd.to_datetime(dataframe['date'])
 
 
-def test_date_as_timestamp():
-    row_test = CovidDayStats("2021-7-26", 0, 0, 0)
-    assert row_test.date_as_timestamp() == pd.Timestamp(year=2021, month=7, day=26)
+@pytest.fixture(scope='function')
+def aws_credentials():
+    """Mocked AWS Credentials for moto."""
+    os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
+    os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
+    os.environ['AWS_SECURITY_TOKEN'] = 'testing'
+    os.environ['AWS_SESSION_TOKEN'] = 'testing'
 
 
-def test_add_day():
-    container_test = CovidDataContainer()
-    row_test_1 = CovidDayStats("2021-7-24", 0, 0, 0)
-    row_test_2 = CovidDayStats("2021-7-25", 2, 1, 0)
-    row_test_3 = CovidDayStats("2021-7-26", 4, 2, 1)
-    container_test.add_day(row_test_1)
-    container_test.add_day(row_test_2)
-    container_test.add_day(row_test_3)
-    assert len(container_test.data_dict) == 3
-    query_day = container_test.get_day_with_timestamp(pd.Timestamp("2021-7-25"))
-    assert query_day.cases == 2
-    with pytest.raises(KeyError):
-        bad_query_day = container_test.get_day_with_timestamp(pd.Timestamp("2021-7-23"))
+@pytest.fixture(scope='function')
+def ddb(aws_credentials):
+    with mock_dynamodb2():
+        ddb = boto3.resource('dynamodb', region_name='us-east-1')
+        yield ddb
 
 
-def test_get_most_recent_date():
-    container_test = CovidDataContainer()
-    row_test_1 = CovidDayStats("2021-7-24", 0, 0, 0)
-    row_test_2 = CovidDayStats("2021-7-25", 2, 1, 0)
-    row_test_3 = CovidDayStats("2021-7-26", 4, 2, 1)
-    container_test.add_day(row_test_1)
-    container_test.add_day(row_test_2)
-    container_test.add_day(row_test_3)
-    latest_date = container_test.get_most_recent_date()
-    assert latest_date == pd.Timestamp("2021-07-26")
+def set_up_test_table(ddb):
+    ddb.create_table(
+        TableName='test-table',
+        KeySchema=[
+            {
+                'AttributeName': 'date',
+                'KeyType': 'HASH'
+            }
+        ],
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'date',
+                'AttributeType': 'S'
+            }
+        ],
+        BillingMode='PAY_PER_REQUEST'
+    )
+    table = ddb.Table('test-table')
+    return table
+
+
+@mock_dynamodb2
+def test_get_most_recent_date(ddb):
+    rows_to_add = dataframe
+    table = set_up_test_table(ddb)
+    for index, row in rows_to_add.iterrows():
+        table.put_item(
+            Item={
+                'date': str(row.date),
+                'cases': row.cases,
+                'deaths': row.deaths,
+                'recovered': row.recovered,
+            }
+        )
+
+    most_recent_date = get_most_recent_date(table)
+
+    assert str(most_recent_date) == '2021-08-03 00:00:00'
+
+
+def test_add_rows_to_database(ddb):
+    rows_to_add = dataframe
+    table = set_up_test_table(ddb)
+
+    rows_added = add_rows_to_database(rows_to_add, table)
+    response = table.get_item(Key={'date': '2021-08-02 00:00:00'})
+
+    assert rows_added == 3
+    assert response['Item']['recovered'] == 67

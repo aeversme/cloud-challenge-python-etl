@@ -5,8 +5,9 @@ import urllib.error
 import pandas as pd
 import pandas.errors
 from urllib.request import urlretrieve
-from data_transformer import date_series_to_datetime, filter_dataframe, merge_dataframes
-from data_handler import CovidDayStats, CovidDataContainer
+import data_transformer as dt
+import data_handler as dh
+import message_handler as mh
 
 NYT_DATASET_URL = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv'
 HOPKINS_DATASET_URL = 'https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv'
@@ -20,13 +21,17 @@ else:
     HOPKINS_CSV_PATH = '/tmp/hopkins_data.csv'
 
 most_recent_error_message = 'An unknown error occurred.'
+subject = ''
+message = ''
 
 sns_client = boto3.client('sns', region_name='us-east-1')
 sns_topics_list = sns_client.list_topics()
 sns_topic_arn = sns_topics_list['Topics'][1]['TopicArn']
+sns = boto3.resource('sns')
+topic = sns.Topic(sns_topic_arn)
 
-subject = ''
-message = ''
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('covid-data')
 
 
 def download_covid_dataframes(nyt_url: str, hopkins_url: str):
@@ -44,8 +49,8 @@ def transform_dataframes(nyt_df: pd.DataFrame, hopkins_df: pd.DataFrame):
     """
     Transforms data in the dataframes.
     """
-    nyt_df['date'] = date_series_to_datetime(nyt_df)
-    hopkins_transformed = filter_dataframe(hopkins_df)
+    nyt_df['date'] = dt.date_series_to_datetime(nyt_df)
+    hopkins_transformed = dt.filter_dataframe(hopkins_df)
     return nyt_df, hopkins_transformed
 
 
@@ -53,7 +58,7 @@ def merge_covid_dataframes(nyt_df: pd.DataFrame, hopkins_df: pd.DataFrame) -> pd
     """
     Merges two dataframes.
     """
-    merged_covid_data = merge_dataframes(nyt_df, hopkins_df)
+    merged_covid_data = dt.merge_dataframes(nyt_df, hopkins_df)
     return merged_covid_data
 
 
@@ -83,86 +88,35 @@ def extract_transform(nyt_dataset_url: str, hopkins_dataset_url: str) -> pd.Data
     return covid_data
 
 
-def add_rows_to_container(rows_to_add: pd.DataFrame, container: CovidDataContainer):
-    """
-    Adds dataset rows to a container.
-    """
-    for index, row in rows_to_add.iterrows():
-        container.add_day(CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
-    return container
-
-
-def load_initial_data(covid_dataset: pd.DataFrame, container: CovidDataContainer):
+def load_initial_data(covid_dataset: pd.DataFrame):
     """
     Loads all rows from the dataset into the database and sends a success message.
     """
     global subject, message
-    print('Loading initial data into database...')
-    add_rows_to_container(covid_dataset, container)
-    subject = 'Initial COVID database load successful'
-    number_of_rows = len(container)
+    subject = 'Initial COVID database load was successful'
+    number_of_rows = dh.add_rows_to_database(covid_dataset, table)
     message = f'Initial data loaded: {number_of_rows} rows added to the database.'
-    # SNS notification
-    # publish_to_sns(message, subject)
-    # print message to console for logging
     print(message)
 
 
-def load_recent_updates(covid_dataset: pd.DataFrame,
-                        most_recent_database_date: pd.Timestamp,
-                        container: CovidDataContainer):
+def load_recent_updates(covid_dataset: pd.DataFrame, most_recent_database_date: pd.Timestamp):
     """
     Drops any row from the dataset that is already stored in the database, loads only new rows into the database,
     and sends a success message.
     """
     global subject, message
-    print('Loading only new data into database...')
-    # find dataset index of most recent database date
+    # find index in dataset of most recent database date
     dataset_index_of_database_most_recent_date = int(covid_dataset[covid_dataset['date'] ==
                                                                    most_recent_database_date].index.values)
 
-    # eliminate all dataset indices prior to most recent database date index
-    newest_covid_data = covid_dataset.drop(covid_dataset.index[range(0, dataset_index_of_database_most_recent_date +
-                                                                     1)])
+    # find new covid data by eliminating all dataset indices prior to index of most recent database date
+    new_covid_data = covid_dataset.drop(covid_dataset.index[range(0, dataset_index_of_database_most_recent_date + 1)])
 
-    # use data_container.add_day to add only new data to database
-    add_rows_to_container(newest_covid_data, container)
-
+    # add only new data to database
     subject = 'COVID database update successful'
-    number_of_rows = len(newest_covid_data)
+    number_of_rows = dh.add_rows_to_database(new_covid_data, table)
     message = f'Today\'s update was successful: {number_of_rows} row(s) added to the database.'
-    # SNS notification
-    # publish_to_sns(message, subject)
-    # print message to console for logging
     print(message)
-
-
-def no_update():
-    """
-    Sends a 'no update' message.
-    """
-    global subject, message
-    subject = 'No Python ETL update'
-    message = 'There was no new data to load: 0 rows added to the database.'
-    # SNS notification
-    # publish_to_sns(message, subject)
-    # print message to console for logging
-    print(message)
-
-
-def publish_to_sns(sns_subject: str, sns_message: str):
-    """
-    Publishes a message to the SNS topic.
-    """
-    sns_response = sns_client.publish(
-        TopicArn=sns_topic_arn,
-        Subject=sns_subject,
-        Message=sns_message
-    )
-    response_status_code = sns_response['ResponseMetadata']['HTTPStatusCode']
-    print(f'SNS Response Status Code: {response_status_code}')
-    print(sns_response)
-    return response_status_code
 
 
 def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
@@ -173,48 +127,48 @@ def load_to_database(nyt_dataset_url: str, hopkins_dataset_url: str):
     try:
         # extract and transform datasets
         covid_dataset = extract_transform(nyt_dataset_url, hopkins_dataset_url)
-        data_container = CovidDataContainer()
 
-        if False:
-            # test code for local container
-            for index, row in covid_dataset.iterrows():
-                data_container.add_day(CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
-                if index >= 547:
-                    break
+        # if IS_RUNNING_LOCALLY:
+        #     # test code for local container
+        #     for index, row in covid_dataset.iterrows():
+        #         data_container.add_day(CovidDayStats(str(row.date), row.cases, row.deaths, row.recovered))
+        #         if index >= 547:
+        #             break
 
         # retrieve most recent date from database and extracted covid dataset
         most_recent_dataset_date = covid_dataset['date'][covid_dataset.index[-1]]
-        most_recent_database_date = data_container.get_most_recent_date()
+        most_recent_database_date = dh.get_most_recent_date(table)
 
-        if len(data_container) == 0:
+        if most_recent_database_date is None:
             # loads entire dataset into the database
-            load_initial_data(covid_dataset, data_container)
+            load_initial_data(covid_dataset)
         elif most_recent_dataset_date > most_recent_database_date:
             # updates the database with new data
-            load_recent_updates(covid_dataset, most_recent_database_date, data_container)
+            load_recent_updates(covid_dataset, most_recent_database_date)
         else:
             # no new data loaded into the database
-            no_update()
+            subject = 'No Python ETL update'
+            message = 'There was no new data to load: 0 rows added to the database.'
+            print(message)
     except Exception as error:
         print(error)
         print(sys.exc_info())
         print(most_recent_error_message)
         subject = 'The Python ETL function encountered an error today'
-        message = f'An error occurred.\n\n{most_recent_error_message}\n\n{sys.exc_info()}'
-        # SNS error notification
-        # publish_to_sns(message, subject)
+        message = f'An error occurred. See log stream for more details.' \
+                  f'\n\n{most_recent_error_message}' \
+                  f'\n\n{sys.exc_info()}'
         raise
-    return data_container
 
 
 def lambda_handler(event, context):
     global subject, message
     try:
         load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
-        publish_to_sns(subject, message)
+        mh.publish_message(topic, subject, message)
     except Exception as error:
         print(error)
-        publish_to_sns(subject, message)
+        mh.publish_message(topic, subject, message)
         return {
             'statusCode': 500,
             'body': json.dumps('Something went wrong. See logs for details.')
@@ -225,5 +179,5 @@ def lambda_handler(event, context):
     }
 
 
-if __name__ == '__main__' and IS_RUNNING_LOCALLY:
-    load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
+# if __name__ == '__main__' and IS_RUNNING_LOCALLY:
+#     load_to_database(NYT_DATASET_URL, HOPKINS_DATASET_URL)
