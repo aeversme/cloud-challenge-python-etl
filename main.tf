@@ -90,9 +90,7 @@ module "lambda_function" {
     ddb = {
       effect = "Allow",
       actions = [
-        "dynamodb:Scan",
-        "dynamodb:PutItem",
-        "dynamodb:BatchWrite*"
+        "dynamodb:*"
       ],
       resources = [aws_dynamodb_table.python-covid-etl-table.arn]
     }
