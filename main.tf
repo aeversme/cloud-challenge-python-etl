@@ -167,3 +167,15 @@ resource "aws_lambda_permission" "allow_event_bridge" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.daily-etl-trigger.arn
 }
+
+resource "aws_instance" "web" {
+  ami             = "ami-0d915a031cabac0e0"
+  instance_type   = "t2.micro"
+  key_name        = "redash"
+  security_groups = ["sg-0f370907fe55b9567"]
+
+  tags = {
+    Name      = "python-covid-etl-redash-instance"
+    ManagedBy = "Terraform"
+  }
+}
