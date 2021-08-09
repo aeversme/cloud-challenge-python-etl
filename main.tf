@@ -170,7 +170,7 @@ resource "aws_lambda_permission" "allow_event_bridge" {
 
 resource "aws_instance" "redash_instance" {
   ami                    = "ami-0d915a031cabac0e0"
-  instance_type          = "t2.micro"
+  instance_type          = "t2.small"
   key_name               = "redash"
   vpc_security_group_ids = ["sg-0f370907fe55b9567"]
 
