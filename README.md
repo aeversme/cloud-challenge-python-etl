@@ -1,4 +1,6 @@
-**Python ETL Cloud Challenge**
+# Python ETL Cloud Challenge
+
+Design narrative: [https://alexeversmeyer.com/post/12](https://alexeversmeyer.com/post/12)
 
 This project centers around an event-driven AWS Lambda function, written in Python, that:
 
