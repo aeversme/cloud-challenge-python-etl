@@ -12,8 +12,8 @@ The Lambda function is triggered by a scheduled Event Bridge event daily at 12:0
 automatically to Simple Notification Service, alerting subscribers (me, in this case) of the success or failure of this 
 process.
 
-An EC2 instance runs an open-source copy of Redash, which performs a daily scan of the DynamoDB table shortly at 12:10 
-UTC. The dashboard produced in Redash can then be refreshed for visualization of the latest data.
+An EC2 instance runs an open-source copy of Redash, which performs a daily scan of the DynamoDB table shortly after
+12:10 UTC. The dashboard produced in Redash can then be refreshed for visualization of the latest data.
 
 All infrastructure is provisioned using Terraform, and a GitHub Actions workflow updates the infrastructure with every 
 push to this repository.
