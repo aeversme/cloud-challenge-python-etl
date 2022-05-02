@@ -22,7 +22,7 @@ terraform {
 }
 
 provider "aws" {
-  profile = "iamadmin-general"
+#  profile = "iamadmin-general"
   region  = "us-east-1"
 }
 
