@@ -22,8 +22,8 @@ terraform {
 }
 
 provider "aws" {
-#  profile = "iamadmin-general"
-  region  = "us-east-1"
+  #  profile = "iamadmin-general"
+  region = "us-east-1"
 }
 
 locals {
