@@ -1,4 +1,5 @@
 import pandas as pd
+from botocore.exceptions import ClientError
 
 
 def get_most_recent_date(table):
@@ -57,7 +58,8 @@ def write_to_database(rows, table):
                         'recovered': row.recovered,
                     }
                 )
-    except:
+    except ClientError as e:
+        print(e)
         print("Error executing batch writer.")
 
 
