@@ -23,6 +23,8 @@ def filter_dataframe(dataframe):
 
 def merge_dataframes(dataframe_1, dataframe_2):
     """
-    Merges two dataframes using the inner method.
+    Merges two dataframes using the outer method.
     """
-    return dataframe_1.merge(dataframe_2, on='date', how='inner')
+    df = dataframe_1.merge(dataframe_2, on='date', how='outer')
+    df_adjusted = df.drop(axis=0, index=0)
+    return df_adjusted
