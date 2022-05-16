@@ -14,8 +14,6 @@ def filter_dataframe(dataframe):
     """
     dataframe.rename(columns=str.lower, inplace=True)
     dataframe['date'] = date_series_to_datetime(dataframe)
-    dataframe['recovered'] = dataframe['recovered'].fillna(0)
-    dataframe['recovered'] = dataframe['recovered'].astype(int)
     dataframe_filtered = dataframe[dataframe['country/region'] == 'US']
     dataframe_reduced = dataframe_filtered.drop(columns=['country/region', 'province/state', 'confirmed', 'deaths'])
     return dataframe_reduced
@@ -23,8 +21,10 @@ def filter_dataframe(dataframe):
 
 def merge_dataframes(dataframe_1, dataframe_2):
     """
-    Merges two dataframes using the outer method.
+    Merges two dataframes using the outer method. Converts one column to type 'int64'.
     """
     df = dataframe_1.merge(dataframe_2, on='date', how='outer')
+    df['recovered'] = df['recovered'].fillna(0)
+    df['recovered'] = df['recovered'].astype('int64')
     df_adjusted = df.drop(axis=0, index=0)
     return df_adjusted
