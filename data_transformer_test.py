@@ -40,10 +40,10 @@ def test_merge_dataframes():
     nyt_test_data['date'] = date_series_to_datetime(nyt_test_data)
     hopkins_test_data = filter_dataframe(hopkins_test_data)
     merged_data = merge_dataframes(nyt_test_data, hopkins_test_data)
-    assert len(merged_data) == 2
+    assert len(merged_data) == 3
     assert list(merged_data.columns) == ['date', 'cases', 'deaths', 'recovered']
     assert merged_data['date'].dtype == 'datetime64[ns]'
-    assert merged_data.date[0] == pd.Timestamp(year=2021, month=1, day=2)
-    assert merged_data.cases[0] == 234
-    assert merged_data.deaths[1] == 678
-    assert merged_data.recovered[0] == 456
+    assert merged_data.date[1] == pd.Timestamp(year=2021, month=1, day=2)
+    assert merged_data.cases[1] == 234
+    assert merged_data.deaths[2] == 678
+    assert merged_data.recovered[1] == 456
