@@ -110,7 +110,7 @@ def load_recent_updates(covid_dataset: pd.DataFrame, most_recent_database_date: 
                                                                    most_recent_database_date].index.values)
 
     # find new covid data by eliminating all dataset indices prior to index of most recent database date
-    new_covid_data = covid_dataset.drop(covid_dataset.index[range(0, dataset_index_of_database_most_recent_date + 1)])
+    new_covid_data = covid_dataset.drop(covid_dataset.index[range(1, dataset_index_of_database_most_recent_date + 1)])
 
     # add only new data to database
     subject = 'COVID database update successful'
